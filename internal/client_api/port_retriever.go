@@ -3,17 +3,18 @@ package client_api
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/alexpashkov/ports/internal/port_domain"
 	"io"
 )
 
-type portRetriever func() (Port, error)
+type portRetriever func() (port_domain.Port, error)
 
 func buildPortRetriever(dec *json.Decoder) (portRetriever, error) {
 	if _, err := dec.Token(); err != nil {
 		return nil, err
 	}
-	return func() (Port, error) {
-		var p Port
+	return func() (port_domain.Port, error) {
+		var p port_domain.Port
 		if dec.More() {
 			_, err := dec.Token()
 			if err != nil {

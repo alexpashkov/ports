@@ -2,20 +2,21 @@ package client_api
 
 import (
 	"encoding/json"
+	"github.com/alexpashkov/ports/internal/port_domain"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"testing"
 )
 
-func TestPortRetriever(t *testing.T) {
-	retriever, err := buildPortRetriever(openPortsDecoder(t))
-	require.NoError(t, err)
-	received := readIntoSliceFromRetriever(t, retriever)
-	require.NoError(t, err)
+func TestSeedPorts(t *testing.T) {
+	var received []port_domain.Port
+	require.NoError(t, SeedPorts(openPortsDecoder(t), func(port *port_domain.Port) error {
+		received = append(received, *port)
+		return nil
+	}))
 	sortPorts(received)
 	expected := readIntoSlice(t, openPortsDecoder(t))
 	sortPorts(expected)
@@ -30,43 +31,32 @@ func openPortsDecoder(t testing.TB) *json.Decoder {
 	return json.NewDecoder(f)
 }
 
-func readIntoSliceFromRetriever(t testing.TB, retrievePort portRetriever) []Port {
+func readIntoSlice(t testing.TB, dec *json.Decoder) []port_domain.Port {
 	t.Helper()
-	var (
-		ports []Port
-		p     Port
-		err   error
-	)
-	for p, err = retrievePort(); err == nil; p, err = retrievePort() {
-		ports = append(ports, p)
-	}
-	require.Equal(t, err, io.EOF)
-	return ports
-}
-
-func readIntoSlice(t testing.TB, dec *json.Decoder) []Port {
-	t.Helper()
-	m := make(map[string]Port)
+	m := make(map[string]port_domain.Port)
 	require.NoError(t, dec.Decode(&m))
-	var res []Port
+	var res []port_domain.Port
 	for _, p := range m {
 		res = append(res, p)
 	}
 	return res
 }
 
-func sortPorts(p []Port) {
+func sortPorts(p []port_domain.Port) {
 	sort.Sort(Ports(p))
 }
 
-type Ports []Port
+type Ports []port_domain.Port
 
 func (p Ports) Len() int {
 	return len(p)
 }
 
 func (p Ports) Less(i, j int) bool {
-	return p[i].ID() < p[j].ID()
+	if len(p[i].Unlocs) < 1 || len(p[j].Unlocs) < 1 {
+		return false
+	}
+	return p[i].Unlocs[0] < p[j].Unlocs[0]
 }
 
 func (p Ports) Swap(i, j int) {
